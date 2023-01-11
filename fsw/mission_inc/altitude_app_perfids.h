@@ -19,12 +19,12 @@
 /**
  * @file
  *
- * Define Sample App Performance IDs
+ * Define Altitude App Performance IDs
  */
 
-#ifndef SAMPLE_APP_PERFIDS_H
-#define SAMPLE_APP_PERFIDS_H
+#ifndef ALTITUDE_APP_PERFIDS_H
+#define ALTITUDE_APP_PERFIDS_H
 
-#define SAMPLE_APP_PERF_ID 91
+#define ALTITUDE_APP_PERF_ID 91
 
-#endif /* SAMPLE_APP_PERFIDS_H */
+#endif /* ALTITUDE_APP_PERFIDS_H */
