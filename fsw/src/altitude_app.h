@@ -61,6 +61,12 @@ typedef struct
     ALTITUDE_APP_HkTlm_t HkTlm;
 
     /*
+    ** MPL3115A2 data...
+    */
+    float AltitudeRead;
+    float TemperatureRead;
+
+    /*
     ** Run Status variable used in the main processing loop
     */
     uint32 RunStatus;
@@ -91,6 +97,8 @@ void  ALTITUDE_APP_ProcessGroundCommand(CFE_SB_Buffer_t *SBBufPtr);
 int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg);
 int32 ALTITUDE_APP_ResetCounters(const ALTITUDE_APP_ResetCountersCmd_t *Msg);
 int32 ALTITUDE_APP_Noop(const ALTITUDE_APP_NoopCmd_t *Msg);
+
+int32 sensor_mpl3115a2_init(void);
 
 bool ALTITUDE_APP_VerifyCmdLength(CFE_MSG_Message_t *MsgPtr, size_t ExpectedLength);
 

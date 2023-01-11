@@ -28,9 +28,8 @@
 #include "altitude_app_version.h"
 #include "altitude_app.h"
 
-/* The altitude_lib module provides the ALTITUDE_LIB_Function() prototype */
 #include <string.h>
-#include "sensor_mpl3115a2.h"
+#include "mpl3115a2.h"
 
 /*
 ** global data
@@ -61,6 +60,14 @@ void ALTITUDE_APP_Main(void)
     if (status != CFE_SUCCESS)
     {
         ALTITUDE_APP_Data.RunStatus = CFE_ES_RunStatus_APP_ERROR;
+    }
+
+    status = sensor_mpl3115a2_init();
+    if (status != CFE_SUCCESS)
+    {
+        ALTITUDE_APP_Data.RunStatus = CFE_ES_RunStatus_APP_ERROR;
+        CFE_EVS_SendEvent(ALTITUDE_APP_DEV_INF_EID, CFE_EVS_EventType_ERROR,
+                          "ALTITUDE APP: Error initializing MPL3115A2\n");
     }
 
     /*
@@ -257,13 +264,20 @@ void ALTITUDE_APP_ProcessGroundCommand(CFE_SB_Buffer_t *SBBufPtr)
 /* * * * * * * * * * * * * * * * * * * * * * * *  * * * * * * *  * *  * * * * */
 int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg)
 {
-    int i;
 
+    ALTITUDE_APP_Data.AltitudeRead    = sensor_mpl3115a2_getAltitude();
+    ALTITUDE_APP_Data.TemperatureRead = sensor_mpl3115a2_getTemperature();
+    printf("Hola");
+    printf("A=%f and T=%f\n",ALTITUDE_APP_Data.AltitudeRead,ALTITUDE_APP_Data.TemperatureRead);
     /*
     ** Get command execution counters...
     */
     ALTITUDE_APP_Data.HkTlm.Payload.CommandErrorCounter = ALTITUDE_APP_Data.ErrCounter;
     ALTITUDE_APP_Data.HkTlm.Payload.CommandCounter      = ALTITUDE_APP_Data.CmdCounter;
+
+    // Sensor data
+    ALTITUDE_APP_Data.HkTlm.Payload.AltitudeRead        = ALTITUDE_APP_Data.AltitudeRead;
+    ALTITUDE_APP_Data.HkTlm.Payload.TemperatureRead     = ALTITUDE_APP_Data.TemperatureRead;
 
     /*
     ** Send housekeeping telemetry packet...
@@ -304,4 +318,74 @@ int32 ALTITUDE_APP_ResetCounters(const ALTITUDE_APP_ResetCountersCmd_t *Msg)
     CFE_EVS_SendEvent(ALTITUDE_APP_COMMANDRST_INF_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: RESET command");
 
     return CFE_SUCCESS;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
+/*                                                                            */
+/* Verify command packet length                                               */
+/*                                                                            */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
+bool ALTITUDE_APP_VerifyCmdLength(CFE_MSG_Message_t *MsgPtr, size_t ExpectedLength)
+{
+    bool              result       = true;
+    size_t            ActualLength = 0;
+    CFE_SB_MsgId_t    MsgId        = CFE_SB_INVALID_MSG_ID;
+    CFE_MSG_FcnCode_t FcnCode      = 0;
+
+    CFE_MSG_GetSize(MsgPtr, &ActualLength);
+
+    /*
+    ** Verify the command packet length.
+    */
+    if (ExpectedLength != ActualLength)
+    {
+        CFE_MSG_GetMsgId(MsgPtr, &MsgId);
+        CFE_MSG_GetFcnCode(MsgPtr, &FcnCode);
+
+        CFE_EVS_SendEvent(ALTITUDE_APP_LEN_ERR_EID, CFE_EVS_EventType_ERROR,
+                          "Invalid Msg length: ID = 0x%X,  CC = %u, Len = %u, Expected = %u",
+                          (unsigned int)CFE_SB_MsgIdToValue(MsgId), (unsigned int)FcnCode, (unsigned int)ActualLength,
+                          (unsigned int)ExpectedLength);
+
+        result = false;
+
+        ALTITUDE_APP_Data.ErrCounter++;
+    }
+
+    return result;
+}
+
+int32 sensor_mpl3115a2_init(void){
+
+  int rv;
+  int fd;
+
+  static const char bus_path[] = "/dev/i2c-2";
+  static const char mpl3115a2_path[] = "/dev/i2c-2.mpl3115a2-0";
+
+  // Device registration
+  rv = i2c_dev_register_sensor_mpl3115a2(
+    &bus_path[0],
+    &mpl3115a2_path[0]
+  );
+  if(rv == 0)
+    CFE_EVS_SendEvent(ALTITUDE_APP_DEV_INF_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: Device registered correctly at %s",
+                        mpl3115a2_path);
+
+  fd = open(&mpl3115a2_path[0], O_RDWR);
+  if(fd >= 0)
+  CFE_EVS_SendEvent(ALTITUDE_APP_DEV_INF_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: Device opened correctly at %s",
+                    mpl3115a2_path);
+
+  // Device configuration
+  rv = sensor_mpl3115a2_begin(fd);
+  if(rv != 0){
+    CFE_EVS_SendEvent(ALTITUDE_APP_DEV_INF_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: Could not find sensor. Check wiring.");
+  }else{
+    CFE_EVS_SendEvent(ALTITUDE_APP_DEV_INF_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: Device configured correctly");
+  }
+
+  close(fd);
+
+  return CFE_SUCCESS;
 }
