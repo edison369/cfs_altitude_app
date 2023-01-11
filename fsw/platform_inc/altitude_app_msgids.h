@@ -28,9 +28,11 @@
 #define ALTITUDE_APP_MSGIDS_H
 
 /* V1 Command Message IDs must be 0x18xx */
-#define ALTITUDE_APP_CMD_MID     0x1882
-#define ALTITUDE_APP_SEND_HK_MID 0x1883
+#define ALTITUDE_APP_CMD_MID     0x18E4
+#define ALTITUDE_APP_SEND_HK_MID 0x18E5
+#define ALTITUDE_APP_SEND_RF_MID 0x18F4
+#define ALTITUDE_APP_RF_DATA_MID 0x18F5
 /* V1 Telemetry Message IDs must be 0x08xx */
-#define ALTITUDE_APP_HK_TLM_MID  0x0883
+#define ALTITUDE_APP_HK_TLM_MID  0x08E2
 
 #endif /* ALTITUDE_APP_MSGIDS_H */
