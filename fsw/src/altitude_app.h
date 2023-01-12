@@ -64,7 +64,6 @@ typedef struct
     ** MPL3115A2 data...
     */
     float AltitudeRead;
-    float TemperatureRead;
 
     /*
     ** Run Status variable used in the main processing loop

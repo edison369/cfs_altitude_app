@@ -62,7 +62,6 @@ typedef struct
     uint8 CommandCounter;
     uint8 spare[2];
     float AltitudeRead;
-    float TemperatureRead;
 } ALTITUDE_APP_HkTlm_Payload_t;
 
 typedef struct

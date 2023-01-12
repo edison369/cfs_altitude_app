@@ -181,6 +181,9 @@ int32 ALTITUDE_APP_Init(void)
         return status;
     }
 
+    CFE_EVS_SendEvent(ALTITUDE_APP_STARTUP_INF_EID, CFE_EVS_EventType_INFORMATION, "Altitude Tlm App Initialized.%s",
+                     ALTITUDE_APP_VERSION_STRING);
+
     return CFE_SUCCESS;
 }
 
@@ -266,9 +269,6 @@ int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg)
 {
 
     ALTITUDE_APP_Data.AltitudeRead    = sensor_mpl3115a2_getAltitude();
-    ALTITUDE_APP_Data.TemperatureRead = sensor_mpl3115a2_getTemperature();
-    printf("Hola");
-    printf("A=%f and T=%f\n",ALTITUDE_APP_Data.AltitudeRead,ALTITUDE_APP_Data.TemperatureRead);
     /*
     ** Get command execution counters...
     */
@@ -277,7 +277,6 @@ int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg)
 
     // Sensor data
     ALTITUDE_APP_Data.HkTlm.Payload.AltitudeRead        = ALTITUDE_APP_Data.AltitudeRead;
-    ALTITUDE_APP_Data.HkTlm.Payload.TemperatureRead     = ALTITUDE_APP_Data.TemperatureRead;
 
     /*
     ** Send housekeeping telemetry packet...
