@@ -60,6 +60,7 @@ typedef struct
     */
     ALTITUDE_APP_HkTlm_t HkTlm;
     ALTITUDE_APP_OutData_t OutData;
+    ALTITUDE_APP_TempData_t TempData;
     /*
     ** MPL3115A2 data...
     */

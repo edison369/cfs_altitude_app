@@ -177,6 +177,12 @@ int32 ALTITUDE_APP_Init(void)
                  sizeof(ALTITUDE_APP_Data.OutData));
 
     /*
+    ** Initialize temperature packet.
+    */
+    CFE_MSG_Init(CFE_MSG_PTR(ALTITUDE_APP_Data.TempData.TelemetryHeader), CFE_SB_ValueToMsgId(ALTITUDE_APP_TEMP_MID),
+                sizeof(ALTITUDE_APP_Data.TempData));
+
+    /*
     ** Create Software Bus message pipe.
     */
     status = CFE_SB_CreatePipe(&ALTITUDE_APP_Data.CommandPipe, ALTITUDE_APP_Data.PipeDepth, ALTITUDE_APP_Data.PipeName);
@@ -309,6 +315,7 @@ int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg){
     ALTITUDE_APP_Data.OutData.AppID_H = (uint8_t) ((ALTITUDE_APP_HK_TLM_MID >> 8) & 0xff);
     ALTITUDE_APP_Data.OutData.AppID_L = (uint8_t) (ALTITUDE_APP_HK_TLM_MID & 0xff);
 
+
     uint8_t *aux_array1;
     aux_array1 = NULL;
     aux_array1 = malloc(4 * sizeof(uint8_t));
@@ -328,6 +335,13 @@ int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg){
     */
     CFE_SB_TimeStampMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.OutData.TelemetryHeader));
     CFE_SB_TransmitMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.OutData.TelemetryHeader), true);
+
+    ALTITUDE_APP_Data.TempData.temperature = sensor_mpl3115a2_getTemperature();
+    /*
+    ** Send temperature packet...
+    */
+    CFE_SB_TimeStampMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.TempData.TelemetryHeader));
+    CFE_SB_TransmitMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.TempData.TelemetryHeader), true);
 
     return CFE_SUCCESS;
 }
