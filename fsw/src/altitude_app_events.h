@@ -35,4 +35,6 @@
 #define ALTITUDE_APP_PIPE_ERR_EID          7
 #define ALTITUDE_APP_DEV_INF_EID           8
 
+#define ALTITUDE_APP_EVENT_COUNTS          8
+
 #endif /* ALTITUDE_APP_EVENTS_H */

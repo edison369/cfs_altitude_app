@@ -59,7 +59,7 @@ typedef struct
     ** Housekeeping telemetry packet...
     */
     ALTITUDE_APP_HkTlm_t HkTlm;
-
+    ALTITUDE_APP_OutData_t OutData;
     /*
     ** MPL3115A2 data...
     */
@@ -80,6 +80,8 @@ typedef struct
     */
     char   PipeName[CFE_MISSION_MAX_API_LEN];
     uint16 PipeDepth;
+
+    CFE_EVS_BinFilter_t EventFilters[ALTITUDE_APP_EVENT_COUNTS];
 } ALTITUDE_APP_Data_t;
 
 /****************************************************************************/
@@ -93,6 +95,7 @@ void  ALTITUDE_APP_Main(void);
 int32 ALTITUDE_APP_Init(void);
 void  ALTITUDE_APP_ProcessCommandPacket(CFE_SB_Buffer_t *SBBufPtr);
 void  ALTITUDE_APP_ProcessGroundCommand(CFE_SB_Buffer_t *SBBufPtr);
+int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg);
 int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg);
 int32 ALTITUDE_APP_ResetCounters(const ALTITUDE_APP_ResetCountersCmd_t *Msg);
 int32 ALTITUDE_APP_Noop(const ALTITUDE_APP_NoopCmd_t *Msg);

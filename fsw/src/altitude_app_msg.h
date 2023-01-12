@@ -67,6 +67,22 @@ typedef struct
 typedef struct
 {
     CFE_MSG_TelemetryHeader_t  TelemetryHeader; /**< \brief Telemetry header */
+    uint8_t AppID_H;
+    uint8_t AppID_L;
+    uint8 CommandCounter;
+    uint8 CommandErrorCounter;
+    uint8 spare[2];
+    uint8 byte_group_1[4];    // Altitude
+    uint8 byte_group_2[4];    // empty
+    uint8 byte_group_3[4];    // empty
+    uint8 byte_group_4[4];    // empty
+    uint8 byte_group_5[4];    // empty
+    uint8 byte_group_6[4];    // empty
+} ALTITUDE_APP_OutData_t;
+
+typedef struct
+{
+    CFE_MSG_TelemetryHeader_t  TelemetryHeader; /**< \brief Telemetry header */
     ALTITUDE_APP_HkTlm_Payload_t Payload;         /**< \brief Telemetry payload */
 } ALTITUDE_APP_HkTlm_t;
 

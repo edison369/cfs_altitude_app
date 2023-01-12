@@ -135,9 +135,29 @@ int32 ALTITUDE_APP_Init(void)
     ALTITUDE_APP_Data.PipeName[sizeof(ALTITUDE_APP_Data.PipeName) - 1] = 0;
 
     /*
+    ** Initialize event filter table...
+    */
+    ALTITUDE_APP_Data.EventFilters[0].EventID = ALTITUDE_APP_STARTUP_INF_EID;
+    ALTITUDE_APP_Data.EventFilters[0].Mask    = 0x0000;
+    ALTITUDE_APP_Data.EventFilters[1].EventID = ALTITUDE_APP_COMMAND_ERR_EID;
+    ALTITUDE_APP_Data.EventFilters[1].Mask    = 0x0000;
+    ALTITUDE_APP_Data.EventFilters[2].EventID = ALTITUDE_APP_COMMANDNOP_INF_EID;
+    ALTITUDE_APP_Data.EventFilters[2].Mask    = 0x0000;
+    ALTITUDE_APP_Data.EventFilters[3].EventID = ALTITUDE_APP_COMMANDRST_INF_EID;
+    ALTITUDE_APP_Data.EventFilters[3].Mask    = 0x0000;
+    ALTITUDE_APP_Data.EventFilters[4].EventID = ALTITUDE_APP_INVALID_MSGID_ERR_EID;
+    ALTITUDE_APP_Data.EventFilters[4].Mask    = 0x0000;
+    ALTITUDE_APP_Data.EventFilters[5].EventID = ALTITUDE_APP_LEN_ERR_EID;
+    ALTITUDE_APP_Data.EventFilters[5].Mask    = 0x0000;
+    ALTITUDE_APP_Data.EventFilters[6].EventID = ALTITUDE_APP_PIPE_ERR_EID;
+    ALTITUDE_APP_Data.EventFilters[6].Mask    = 0x0000;
+    ALTITUDE_APP_Data.EventFilters[7].EventID = ALTITUDE_APP_DEV_INF_EID;
+    ALTITUDE_APP_Data.EventFilters[7].Mask    = 0x0000;
+
+    /*
     ** Register the events
     */
-    status = CFE_EVS_Register(NULL, 0, CFE_EVS_EventFilter_BINARY);
+    status = CFE_EVS_Register(ALTITUDE_APP_Data.EventFilters, ALTITUDE_APP_EVENT_COUNTS, CFE_EVS_EventFilter_BINARY);
     if (status != CFE_SUCCESS)
     {
         CFE_ES_WriteToSysLog("Altitude App: Error Registering Events, RC = 0x%08lX\n", (unsigned long)status);
@@ -149,6 +169,12 @@ int32 ALTITUDE_APP_Init(void)
     */
     CFE_MSG_Init(CFE_MSG_PTR(ALTITUDE_APP_Data.HkTlm.TelemetryHeader), CFE_SB_ValueToMsgId(ALTITUDE_APP_HK_TLM_MID),
                  sizeof(ALTITUDE_APP_Data.HkTlm));
+
+    /*
+    ** Initialize output RF packet.
+    */
+    CFE_MSG_Init(CFE_MSG_PTR(ALTITUDE_APP_Data.OutData.TelemetryHeader), CFE_SB_ValueToMsgId(ALTITUDE_APP_RF_DATA_MID),
+                 sizeof(ALTITUDE_APP_Data.OutData));
 
     /*
     ** Create Software Bus message pipe.
@@ -167,6 +193,17 @@ int32 ALTITUDE_APP_Init(void)
     if (status != CFE_SUCCESS)
     {
         CFE_ES_WriteToSysLog("Altitude App: Error Subscribing to HK request, RC = 0x%08lX\n", (unsigned long)status);
+        return status;
+    }
+
+    /*
+    ** Subscribe to RF command packets
+    */
+    status = CFE_SB_Subscribe(CFE_SB_ValueToMsgId(ALTITUDE_APP_SEND_RF_MID), ALTITUDE_APP_Data.CommandPipe);
+    if (status != CFE_SUCCESS)
+    {
+        CFE_ES_WriteToSysLog("Altitude App: Error Subscribing to Command, RC = 0x%08lX\n", (unsigned long)status);
+
         return status;
     }
 
@@ -208,6 +245,10 @@ void ALTITUDE_APP_ProcessCommandPacket(CFE_SB_Buffer_t *SBBufPtr)
 
         case ALTITUDE_APP_SEND_HK_MID:
             ALTITUDE_APP_ReportHousekeeping((CFE_MSG_CommandHeader_t *)SBBufPtr);
+            break;
+
+        case ALTITUDE_APP_SEND_RF_MID:
+            ALTITUDE_APP_ReportRFTelemetry((CFE_MSG_CommandHeader_t *)SBBufPtr);
             break;
 
         default:
@@ -255,6 +296,40 @@ void ALTITUDE_APP_ProcessGroundCommand(CFE_SB_Buffer_t *SBBufPtr)
                               "Invalid ground command code: CC = %d", CommandCode);
             break;
     }
+}
+
+int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg){
+
+    /*
+    ** Get command execution counters...
+    */
+    ALTITUDE_APP_Data.OutData.CommandErrorCounter = ALTITUDE_APP_Data.ErrCounter;
+    ALTITUDE_APP_Data.OutData.CommandCounter      = ALTITUDE_APP_Data.CmdCounter;
+
+    ALTITUDE_APP_Data.OutData.AppID_H = (uint8_t) ((ALTITUDE_APP_HK_TLM_MID >> 8) & 0xff);
+    ALTITUDE_APP_Data.OutData.AppID_L = (uint8_t) (ALTITUDE_APP_HK_TLM_MID & 0xff);
+
+    uint8_t *aux_array1;
+    aux_array1 = NULL;
+    aux_array1 = malloc(4 * sizeof(uint8_t));
+    aux_array1 = (uint8_t*)(&ALTITUDE_APP_Data.AltitudeRead);
+
+    for(int i=0;i<4;i++){
+      ALTITUDE_APP_Data.OutData.byte_group_1[i] = aux_array1[i];
+      ALTITUDE_APP_Data.OutData.byte_group_2[i] = 0;
+      ALTITUDE_APP_Data.OutData.byte_group_3[i] = 0;
+      ALTITUDE_APP_Data.OutData.byte_group_4[i] = 0;
+      ALTITUDE_APP_Data.OutData.byte_group_5[i] = 0;
+      ALTITUDE_APP_Data.OutData.byte_group_6[i] = 0;
+    }
+
+    /*
+    ** Send housekeeping telemetry packet...
+    */
+    CFE_SB_TimeStampMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.OutData.TelemetryHeader));
+    CFE_SB_TransmitMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.OutData.TelemetryHeader), true);
+
+    return CFE_SUCCESS;
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
