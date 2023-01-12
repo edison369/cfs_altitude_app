@@ -65,6 +65,8 @@ typedef struct
     ** MPL3115A2 data...
     */
     float AltitudeRead;
+    float SeaPressure;
+    int8_t AltitudeOffset;
 
     /*
     ** Run Status variable used in the main processing loop
@@ -100,6 +102,9 @@ int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg);
 int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg);
 int32 ALTITUDE_APP_ResetCounters(const ALTITUDE_APP_ResetCountersCmd_t *Msg);
 int32 ALTITUDE_APP_Noop(const ALTITUDE_APP_NoopCmd_t *Msg);
+int32 ALTITUDE_APP_SetSeaPressure(const ALTITUDE_APP_SetSeaPressureCmd_t *Msg);
+int32 ALTITUDE_APP_SetAltitudeOffset(const ALTITUDE_APP_SetAltitudeOffsetCmd_t *Msg);
+int32 ALTITUDE_APP_ResetAltOffSeaPress(const ALTITUDE_APP_ResetAltOffSeaPressCmd_t *Msg);
 
 int32 sensor_mpl3115a2_init(void);
 

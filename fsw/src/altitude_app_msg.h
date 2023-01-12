@@ -28,8 +28,11 @@
 /*
 ** ALTITUDE App command codes
 */
-#define ALTITUDE_APP_NOOP_CC           0
-#define ALTITUDE_APP_RESET_COUNTERS_CC 1
+#define ALTITUDE_APP_NOOP_CC                0
+#define ALTITUDE_APP_RESET_COUNTERS_CC      1
+#define ALTITUDE_APP_SET_SEA_PRESSURE_CC    2
+#define ALTITUDE_APP_SET_ALTITUDE_OFFSET_CC 3
+#define ALTITUDE_APP_RESET_ALTOFF_SEAPR_CC  4
 
 /*************************************************************************/
 
@@ -50,18 +53,48 @@ typedef struct
 */
 typedef ALTITUDE_APP_NoArgsCmd_t ALTITUDE_APP_NoopCmd_t;
 typedef ALTITUDE_APP_NoArgsCmd_t ALTITUDE_APP_ResetCountersCmd_t;
+typedef ALTITUDE_APP_NoArgsCmd_t ALTITUDE_APP_ResetAltOffSeaPressCmd_t;
 
 /*************************************************************************/
+/*
+** Type definition (generic "1 argument" command)
+*/
+typedef struct
+{
+    CFE_MSG_CommandHeader_t CmdHeader; /**< \brief Command header */
+    int32                   Pressure; /**< \brief P(hPA) */
+} ALTITUDE_APP_SeaPressureCmd_t;
+
+typedef struct
+{
+    CFE_MSG_CommandHeader_t CmdHeader; /**< \brief Command header */
+    int8                    AltOffset; /**< \brief -128 to +127 meters. */
+} ALTITUDE_APP_AltOffsetCmd_t;
+
+/*
+** The following commands all share the "1Arg" format
+**
+** They are each given their own type name matching the command name, which
+** allows them to change independently in the future without changing the prototype
+** of the handler function
+*/
+typedef ALTITUDE_APP_SeaPressureCmd_t ALTITUDE_APP_SetSeaPressureCmd_t;
+typedef ALTITUDE_APP_AltOffsetCmd_t ALTITUDE_APP_SetAltitudeOffsetCmd_t;
+
+/*************************************************************************/
+
 /*
 ** Type definition (ALTITUDE App housekeeping)
 */
 
 typedef struct
 {
-    uint8 CommandErrorCounter;
     uint8 CommandCounter;
+    uint8 CommandErrorCounter;
     uint8 spare[2];
     float AltitudeRead;
+    float SeaPressure;
+    int8_t AltitudeOffset;
 } ALTITUDE_APP_HkTlm_Payload_t;
 
 typedef struct
@@ -73,8 +106,8 @@ typedef struct
     uint8 CommandErrorCounter;
     uint8 spare[2];
     uint8 byte_group_1[4];    // Altitude
-    uint8 byte_group_2[4];    // empty
-    uint8 byte_group_3[4];    // empty
+    uint8 byte_group_2[4];    // SeaPressure
+    uint8 byte_group_3[4];    // [AltitudeOffset, 0, 0, 0]
     uint8 byte_group_4[4];    // empty
     uint8 byte_group_5[4];    // empty
     uint8 byte_group_6[4];    // empty

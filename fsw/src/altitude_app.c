@@ -125,6 +125,8 @@ int32 ALTITUDE_APP_Init(void)
     */
     ALTITUDE_APP_Data.CmdCounter = 0;
     ALTITUDE_APP_Data.ErrCounter = 0;
+    ALTITUDE_APP_Data.SeaPressure = 1013.26;
+    ALTITUDE_APP_Data.AltitudeOffset = 0;
 
     /*
     ** Initialize app configuration data
@@ -296,6 +298,30 @@ void ALTITUDE_APP_ProcessGroundCommand(CFE_SB_Buffer_t *SBBufPtr)
 
             break;
 
+        case ALTITUDE_APP_SET_SEA_PRESSURE_CC:
+            if (ALTITUDE_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(ALTITUDE_APP_SetSeaPressureCmd_t)))
+            {
+                ALTITUDE_APP_SetSeaPressure((ALTITUDE_APP_SetSeaPressureCmd_t *)SBBufPtr);
+            }
+
+            break;
+
+        case ALTITUDE_APP_SET_ALTITUDE_OFFSET_CC:
+            if (ALTITUDE_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(ALTITUDE_APP_SetAltitudeOffsetCmd_t)))
+            {
+                ALTITUDE_APP_SetAltitudeOffset((ALTITUDE_APP_SetAltitudeOffsetCmd_t *)SBBufPtr);
+            }
+
+            break;
+
+        case ALTITUDE_APP_RESET_ALTOFF_SEAPR_CC:
+            if (ALTITUDE_APP_VerifyCmdLength(&SBBufPtr->Msg, sizeof(ALTITUDE_APP_ResetAltOffSeaPressCmd_t)))
+            {
+                ALTITUDE_APP_ResetAltOffSeaPress((ALTITUDE_APP_ResetAltOffSeaPressCmd_t *)SBBufPtr);
+            }
+
+            break;
+
         /* default case already found during FC vs length test */
         default:
             CFE_EVS_SendEvent(ALTITUDE_APP_COMMAND_ERR_EID, CFE_EVS_EventType_ERROR,
@@ -321,10 +347,18 @@ int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg){
     aux_array1 = malloc(4 * sizeof(uint8_t));
     aux_array1 = (uint8_t*)(&ALTITUDE_APP_Data.AltitudeRead);
 
+    uint8_t *aux_array2;
+    aux_array2 = NULL;
+    aux_array2 = malloc(4 * sizeof(uint8_t));
+    aux_array2 = (uint8_t*)(&ALTITUDE_APP_Data.SeaPressure);
+
+    uint8_t aux_byte = (uint8_t) ALTITUDE_APP_Data.AltitudeOffset;
+    uint8_t aux_array3[] = {aux_byte,0,0,0};
+
     for(int i=0;i<4;i++){
       ALTITUDE_APP_Data.OutData.byte_group_1[i] = aux_array1[i];
-      ALTITUDE_APP_Data.OutData.byte_group_2[i] = 0;
-      ALTITUDE_APP_Data.OutData.byte_group_3[i] = 0;
+      ALTITUDE_APP_Data.OutData.byte_group_2[i] = aux_array2[i];
+      ALTITUDE_APP_Data.OutData.byte_group_3[i] = aux_array3[i];
       ALTITUDE_APP_Data.OutData.byte_group_4[i] = 0;
       ALTITUDE_APP_Data.OutData.byte_group_5[i] = 0;
       ALTITUDE_APP_Data.OutData.byte_group_6[i] = 0;
@@ -357,6 +391,8 @@ int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg){
 int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg)
 {
 
+    sensor_mpl3115a2_setSeaPressure(ALTITUDE_APP_Data.SeaPressure);
+    sensor_mpl3115a2_setAltitudeOffset(ALTITUDE_APP_Data.AltitudeOffset);
     ALTITUDE_APP_Data.AltitudeRead    = sensor_mpl3115a2_getAltitude();
     /*
     ** Get command execution counters...
@@ -366,6 +402,8 @@ int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg)
 
     // Sensor data
     ALTITUDE_APP_Data.HkTlm.Payload.AltitudeRead        = ALTITUDE_APP_Data.AltitudeRead;
+    ALTITUDE_APP_Data.HkTlm.Payload.SeaPressure         = ALTITUDE_APP_Data.SeaPressure;
+    ALTITUDE_APP_Data.HkTlm.Payload.AltitudeOffset      = ALTITUDE_APP_Data.AltitudeOffset;
 
     /*
     ** Send housekeeping telemetry packet...
@@ -404,6 +442,67 @@ int32 ALTITUDE_APP_ResetCounters(const ALTITUDE_APP_ResetCountersCmd_t *Msg)
     ALTITUDE_APP_Data.ErrCounter = 0;
 
     CFE_EVS_SendEvent(ALTITUDE_APP_COMMANDRST_INF_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: RESET command");
+
+    return CFE_SUCCESS;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
+/*                                                                            */
+/* ALTITUDE Set Sea Pressure value for the altitude measurement by the sensor */
+/*                                                                            */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
+int32 ALTITUDE_APP_SetSeaPressure(const ALTITUDE_APP_SetSeaPressureCmd_t *Msg)
+{
+    ALTITUDE_APP_Data.CmdCounter++;
+    float sea_pressure = (float) Msg->Pressure;
+    uint16_t bar = sea_pressure * 50;
+    if((sea_pressure > 0) &&(bar < 0xFFFF)){
+      ALTITUDE_APP_Data.SeaPressure = sea_pressure;
+      CFE_EVS_SendEvent(ALTITUDE_APP_DEV_INF_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: Sea Pressure set to %f",ALTITUDE_APP_Data.SeaPressure);
+    }else{
+      ALTITUDE_APP_Data.ErrCounter++;
+      CFE_EVS_SendEvent(ALTITUDE_APP_COMMAND_ERR_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: Incorrect value for Sea Pressure");
+    }
+
+
+    return CFE_SUCCESS;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
+/*                                                                            */
+/* ALTITUDE Set Altitude offset command                                       */
+/*                                                                            */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
+int32 ALTITUDE_APP_SetAltitudeOffset(const ALTITUDE_APP_SetAltitudeOffsetCmd_t *Msg)
+{
+    ALTITUDE_APP_Data.CmdCounter++;
+    int8_t offset = Msg->AltOffset;
+
+    if((offset > -128) && (offset < 127)){
+      ALTITUDE_APP_Data.AltitudeOffset = offset;
+      CFE_EVS_SendEvent(ALTITUDE_APP_DEV_INF_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: Altitude offset set to %d",ALTITUDE_APP_Data.AltitudeOffset);
+    }else{
+      ALTITUDE_APP_Data.ErrCounter++;
+      CFE_EVS_SendEvent(ALTITUDE_APP_COMMAND_ERR_EID, CFE_EVS_EventType_INFORMATION, "ALTITUDE: Altitude offset must be between -128m and 127m");
+    }
+
+
+
+    return CFE_SUCCESS;
+}
+
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
+/*                                                                            */
+/* ALTITUDE Reset Sea Pressure and Altitude offset to default command         */
+/*                                                                            */
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * **/
+int32 ALTITUDE_APP_ResetAltOffSeaPress(const ALTITUDE_APP_ResetAltOffSeaPressCmd_t *Msg)
+{
+    ALTITUDE_APP_Data.CmdCounter++;
+
+    ALTITUDE_APP_Data.SeaPressure = 1013.26;
+    ALTITUDE_APP_Data.AltitudeOffset = 0;
+
 
     return CFE_SUCCESS;
 }
