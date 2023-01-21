@@ -57,18 +57,19 @@ void ALTITUDE_APP_Main(void)
     ** CFE_ES_RunStatus_APP_ERROR and the App will not enter the RunLoop
     */
     status = ALTITUDE_APP_Init();
-    if (status != CFE_SUCCESS)
+    if (status == CFE_SUCCESS)
     {
-        ALTITUDE_APP_Data.RunStatus = CFE_ES_RunStatus_APP_ERROR;
-    }
-
-    status = sensor_mpl3115a2_init();
-    if (status != CFE_SUCCESS)
-    {
+      status = sensor_mpl3115a2_init();
+      if (status != CFE_SUCCESS)
+      {
         ALTITUDE_APP_Data.RunStatus = CFE_ES_RunStatus_APP_ERROR;
         CFE_EVS_SendEvent(ALTITUDE_APP_DEV_INF_EID, CFE_EVS_EventType_ERROR,
-                          "ALTITUDE APP: Error initializing MPL3115A2\n");
+          "ALTITUDE APP: Error initializing MPL3115A2\n");
+        }
+    }else{
+      ALTITUDE_APP_Data.RunStatus = CFE_ES_RunStatus_APP_ERROR;
     }
+
 
     /*
     ** ALTITUDE Runloop
@@ -216,6 +217,28 @@ int32 ALTITUDE_APP_Init(void)
     }
 
     /*
+    ** Subscribe to Read command packets
+    */
+    status = CFE_SB_Subscribe(CFE_SB_ValueToMsgId(ALTITUDE_APP_READ_MID), ALTITUDE_APP_Data.CommandPipe);
+    if (status != CFE_SUCCESS)
+    {
+        CFE_ES_WriteToSysLog("Altitude App: Error Subscribing to Command, RC = 0x%08lX\n", (unsigned long)status);
+
+        return status;
+    }
+
+    /*
+    ** Subscribe to Send Temp command packets
+    */
+    status = CFE_SB_Subscribe(CFE_SB_ValueToMsgId(ALTITUDE_APP_SEND_TP_MID), ALTITUDE_APP_Data.CommandPipe);
+    if (status != CFE_SUCCESS)
+    {
+        CFE_ES_WriteToSysLog("Altitude App: Error Subscribing to Command, RC = 0x%08lX\n", (unsigned long)status);
+
+        return status;
+    }
+
+    /*
     ** Subscribe to ground command packets
     */
     status = CFE_SB_Subscribe(CFE_SB_ValueToMsgId(ALTITUDE_APP_CMD_MID), ALTITUDE_APP_Data.CommandPipe);
@@ -257,6 +280,14 @@ void ALTITUDE_APP_ProcessCommandPacket(CFE_SB_Buffer_t *SBBufPtr)
 
         case ALTITUDE_APP_SEND_RF_MID:
             ALTITUDE_APP_ReportRFTelemetry((CFE_MSG_CommandHeader_t *)SBBufPtr);
+            break;
+
+        case ALTITUDE_APP_READ_MID:
+            ALTITUDE_APP_ReadSensor((CFE_MSG_CommandHeader_t *)SBBufPtr);
+            break;
+
+        case ALTITUDE_APP_SEND_TP_MID:
+            ALTITUDE_APP_SendTemp((CFE_MSG_CommandHeader_t *)SBBufPtr);
             break;
 
         default:
@@ -330,6 +361,28 @@ void ALTITUDE_APP_ProcessGroundCommand(CFE_SB_Buffer_t *SBBufPtr)
     }
 }
 
+int32 ALTITUDE_APP_ReadSensor(const CFE_MSG_CommandHeader_t *Msg){
+  sensor_mpl3115a2_setSeaPressure(ALTITUDE_APP_Data.SeaPressure);
+  sensor_mpl3115a2_setAltitudeOffset(ALTITUDE_APP_Data.AltitudeOffset);
+  ALTITUDE_APP_Data.AltitudeRead    = sensor_mpl3115a2_getAltitude();
+  ALTITUDE_APP_Data.TempRead = sensor_mpl3115a2_getTemperature();
+
+  return CFE_SUCCESS;
+}
+
+int32 ALTITUDE_APP_SendTemp(const CFE_MSG_CommandHeader_t *Msg){
+  /* Copy the sensor's temperature */
+  ALTITUDE_APP_Data.TempData.temperature = ALTITUDE_APP_Data.TempRead;
+
+  /*
+  ** Send temperature packet...
+  */
+  CFE_SB_TimeStampMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.TempData.TelemetryHeader));
+  CFE_SB_TransmitMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.TempData.TelemetryHeader), true);
+
+  return CFE_SUCCESS;
+}
+
 int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg){
 
     /*
@@ -371,15 +424,6 @@ int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg){
     CFE_SB_TimeStampMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.OutData.TelemetryHeader));
     CFE_SB_TransmitMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.OutData.TelemetryHeader), true);
 
-    /* Get the sensor temperature */
-    ALTITUDE_APP_Data.TempData.temperature = sensor_mpl3115a2_getTemperature();
-
-    /*
-    ** Send temperature packet...
-    */
-    CFE_SB_TimeStampMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.TempData.TelemetryHeader));
-    CFE_SB_TransmitMsg(CFE_MSG_PTR(ALTITUDE_APP_Data.TempData.TelemetryHeader), true);
-
     return CFE_SUCCESS;
 }
 
@@ -393,10 +437,6 @@ int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg){
 /* * * * * * * * * * * * * * * * * * * * * * * *  * * * * * * *  * *  * * * * */
 int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg)
 {
-
-    sensor_mpl3115a2_setSeaPressure(ALTITUDE_APP_Data.SeaPressure);
-    sensor_mpl3115a2_setAltitudeOffset(ALTITUDE_APP_Data.AltitudeOffset);
-    ALTITUDE_APP_Data.AltitudeRead    = sensor_mpl3115a2_getAltitude();
     /*
     ** Get command execution counters...
     */

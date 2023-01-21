@@ -65,6 +65,7 @@ typedef struct
     ** MPL3115A2 data...
     */
     float AltitudeRead;
+    float TempRead;
     float SeaPressure;
     int8_t AltitudeOffset;
 
@@ -98,6 +99,8 @@ void  ALTITUDE_APP_Main(void);
 int32 ALTITUDE_APP_Init(void);
 void  ALTITUDE_APP_ProcessCommandPacket(CFE_SB_Buffer_t *SBBufPtr);
 void  ALTITUDE_APP_ProcessGroundCommand(CFE_SB_Buffer_t *SBBufPtr);
+int32 ALTITUDE_APP_ReadSensor(const CFE_MSG_CommandHeader_t *Msg);
+int32 ALTITUDE_APP_SendTemp(const CFE_MSG_CommandHeader_t *Msg);
 int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg);
 int32 ALTITUDE_APP_ReportHousekeeping(const CFE_MSG_CommandHeader_t *Msg);
 int32 ALTITUDE_APP_ResetCounters(const ALTITUDE_APP_ResetCountersCmd_t *Msg);
