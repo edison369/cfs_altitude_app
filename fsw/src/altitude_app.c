@@ -127,7 +127,7 @@ int32 ALTITUDE_APP_Init(void)
     ALTITUDE_APP_Data.CmdCounter = 0;
     ALTITUDE_APP_Data.ErrCounter = 0;
     ALTITUDE_APP_Data.SeaPressure = 1013.26;
-    ALTITUDE_APP_Data.AltitudeOffset = 0;
+    ALTITUDE_APP_Data.AltitudeOffset = 113;
 
     /*
     ** Initialize app configuration data
@@ -178,6 +178,7 @@ int32 ALTITUDE_APP_Init(void)
     */
     CFE_MSG_Init(CFE_MSG_PTR(ALTITUDE_APP_Data.OutData.TelemetryHeader), CFE_SB_ValueToMsgId(ALTITUDE_APP_RF_DATA_MID),
                  sizeof(ALTITUDE_APP_Data.OutData));
+    ALTITUDE_APP_Data.OutData.App_Pckg_Counter = 0;
 
     /*
     ** Initialize temperature packet.
@@ -394,6 +395,8 @@ int32 ALTITUDE_APP_ReportRFTelemetry(const CFE_MSG_CommandHeader_t *Msg){
     /* Get the app ID */
     ALTITUDE_APP_Data.OutData.AppID_H = (uint8_t) ((ALTITUDE_APP_HK_TLM_MID >> 8) & 0xff);
     ALTITUDE_APP_Data.OutData.AppID_L = (uint8_t) (ALTITUDE_APP_HK_TLM_MID & 0xff);
+
+    ++ALTITUDE_APP_Data.OutData.App_Pckg_Counter;
 
     /* Copy the sensors data */
     uint8_t *aux_array1;
